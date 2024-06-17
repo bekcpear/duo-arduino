@@ -1,0 +1,95 @@
+name: arduino duo release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+      - 'V*.*.*'
+    paths-ignore:
+      - '.github/workflows/docs.yml'
+      - 'docs/**'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: the tag
+        required: true
+        type: string
+      force-update:
+        description: force update the package_sg200x_index.json file
+        required: false
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: checkout current triggered tag
+      if: github.event_name == 'push'
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: checkout input tag
+      if: github.event_name == 'workflow_dispatch'
+      uses: actions/checkout@v4
+      with:
+        refs: ${{ inputs.tag }}
+        fetch-depth: 0
+    - name: setup python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Install Dependencies
+      run: pip3 install sphinx sphinx-copybutton sphinx_multiversion sphinx_rtd_theme
+
+    - name: Build
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      id: packagebuild
+      run: |
+        set -e
+        echo $PWD
+        echo $GITHUB_WORKSPACE
+        cd ./package/
+        ./release.sh
+        if ! [[ ${{ steps.packagebuild.outputs.index_json_status }} =~ ^:::STATUS:UPDATED_JSON:1 ]]; then
+          echo "The arduino-sophgo package no updates!" >&2
+          echo "Something wroing with the version number?" >&2
+          if [[ ${{ inputs.force-update }} =~ ^(1|(Y|y)((E|e)(S|s))?|(T|t)rue)$ ]]; then
+            echo "force updating ..." >&2
+          else
+            exit 1
+          fi
+        fi
+        mv $GITHUB_WORKSPACE/../arduino-sophgo.zip $GITHUB_WORKSPACE/
+        mv $GITHUB_WORKSPACE/../package_cv180x_index.json $GITHUB_WORKSPACE/
+        mv $GITHUB_WORKSPACE/../burntool.tar.gz $GITHUB_WORKSPACE/
+        mv $GITHUB_WORKSPACE/../burntool.zip $GITHUB_WORKSPACE/
+
+    - name: Build Doc
+      run: |
+        cd $GITHUB_WORKSPACE/docs
+        make html
+        tar -zcvf docs_html.tar.gz ./build/
+        mv docs_html.tar.gz $GITHUB_WORKSPACE/
+
+    - name: Create Release and Upload Release Asset
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        name: Release  ${{ github.ref_name }}
+        body: TODO New Release.
+        draft: false
+        prerelease: false
+        files: |
+          arduino-sophgo.zip
+          package_cv180x_index.json
+          burntool.tar.gz
+          burntool.zip
+          docs_html.tar.gz
