@@ -40,13 +40,18 @@ gh_latest_two_tag() {
 	printf -v query \
 		'{ "query": "query { repository(owner: \\\"%s\\\", name: \\\"%s\\\") { refs(refPrefix: \\\"refs/tags/\\\",orderBy: { field: TAG_COMMIT_DATE, direction: DESC }, first: 2) { edges { node { name } } } } }" }' \
 		"${owner}" "${name}"
-	res=$(_do curl -s -X POST \
+	res=$(curl -s -X POST \
 		-H "Accept: application/json" \
 		-H "Authorization: Bearer ${GITHUB_TOKEN}" \
 		-d "${query}" https://api.github.com/graphql ) || return $?
 	tags=$(_do echo "$res" | _do jq --raw-output '.data.repository.refs.edges[].node.name')
 	echo -n "${tags[@]}"
 }
+
+if [[ -z $GITHUB_TOKEN ]]; then
+	warn "GITHUB_TOKEN doesn't exists, please specify a repo read access token:"
+	fatal "  $ export GITHUB_TOKEN=\"ghp_xxxx..\""
+fi
 
 CURDIR="$(dirname "$(realpath "$0")")"
 REPODIR=$(realpath "${CURDIR}/../")
