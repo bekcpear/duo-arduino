@@ -288,5 +288,6 @@ fi
 
 echo ":::STATUS:${INDEX_JSON_STATUS}"
 echo "index_json_status=${INDEX_JSON_STATUS}" >>${GITHUB_OUTPUT:-/dev/null}
+echo "INDEX_JSON_STATUS=${INDEX_JSON_STATUS}" >>${GITHUB_ENV:-/dev/null}
 
 # vim:sw=8:ts=8:noexpandtab
